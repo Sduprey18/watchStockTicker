@@ -1,0 +1,3 @@
+-dontwarn com.squareup.okhttp3.**
+-keepattributes Signature, InnerClasses, EnclosingMethod
+-keep class com.stocktracker.wear.data.remote.** { *; }

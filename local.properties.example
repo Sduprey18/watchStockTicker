@@ -1,0 +1,4 @@
+# Copy this file to local.properties and set your Alpha Vantage API key.
+# Get a free key at: https://www.alphavantage.co/support/#api-key
+#
+# STOCK_API_KEY=your_api_key_here
