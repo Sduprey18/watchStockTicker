@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 data class DetailUiState(
@@ -34,6 +35,7 @@ class DetailViewModel @Inject constructor(
     val state: StateFlow<DetailUiState> = _state.asStateFlow()
 
     init {
+        Timber.d("DetailViewModel opened for symbol: %s", symbol)
         viewModelScope.launch {
             repository.getQuoteFlow(symbol).collect { quote ->
                 _state.update { it.copy(quote = quote) }
@@ -47,9 +49,11 @@ class DetailViewModel @Inject constructor(
     }
 
     fun removeFromWatchlist() {
+        Timber.d("Removing %s from watchlist via detail screen", symbol)
         viewModelScope.launch {
             repository.removeFromWatchlist(symbol)
         }
     }
 }
+
 

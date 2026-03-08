@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 data class WatchlistUiState(
@@ -57,18 +58,24 @@ class WatchlistViewModel @Inject constructor(
 
     fun refresh() {
         if (!secureApiKeyManager.isKeyConfigured()) {
+            Timber.w("Refresh requested but API key not configured")
             _state.update { it.copy(error = "Configure API key in local.properties") }
             return
         }
+        Timber.d("Manual refresh triggered")
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
             repository.refreshQuotes(force = true)
-                .onFailure { e -> _state.update { it.copy(error = e.message ?: "Refresh failed") } }
+                .onFailure { e ->
+                    Timber.w(e, "Refresh failed")
+                    _state.update { it.copy(error = e.message ?: "Refresh failed") }
+                }
             _state.update { it.copy(isLoading = false) }
         }
     }
 
     fun addSymbol(symbol: String) {
+        Timber.d("Adding symbol: %s", symbol)
         viewModelScope.launch {
             repository.addToWatchlist(symbol)
             if (secureApiKeyManager.isKeyConfigured()) {
@@ -78,6 +85,7 @@ class WatchlistViewModel @Inject constructor(
     }
 
     fun removeSymbol(symbol: String) {
+        Timber.d("Removing symbol: %s", symbol)
         viewModelScope.launch {
             repository.removeFromWatchlist(symbol)
         }
@@ -87,4 +95,5 @@ class WatchlistViewModel @Inject constructor(
         _state.update { it.copy(error = null) }
     }
 }
+
 

@@ -6,6 +6,7 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.stocktracker.wear.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -40,6 +41,7 @@ class SecureApiKeyManager @Inject constructor(
 
     fun setApiKey(key: String) {
         prefs.edit().putString(KEY_API_KEY, key).apply()
+        Timber.i("API key updated")
     }
 
     fun isKeyConfigured(): Boolean = getApiKey().isNotBlank()
@@ -49,7 +51,11 @@ class SecureApiKeyManager @Inject constructor(
             val buildConfigKey = BuildConfig.STOCK_API_KEY
             if (buildConfigKey.isNotBlank()) {
                 setApiKey(buildConfigKey)
+                Timber.i("API key seeded from BuildConfig")
+            } else {
+                Timber.w("No API key found in BuildConfig or secure storage")
             }
         }
     }
 }
+

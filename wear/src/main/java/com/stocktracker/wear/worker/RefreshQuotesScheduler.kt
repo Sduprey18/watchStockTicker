@@ -6,6 +6,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import timber.log.Timber
 import java.util.concurrent.TimeUnit
 
 object RefreshQuotesScheduler {
@@ -25,5 +26,7 @@ object RefreshQuotesScheduler {
             ExistingPeriodicWorkPolicy.KEEP,
             request
         )
+        Timber.d("Scheduled periodic quote refresh every 45 minutes (work=%s)", WORK_NAME)
     }
 }
+

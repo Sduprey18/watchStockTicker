@@ -13,6 +13,7 @@ import com.stocktracker.wear.domain.WatchlistItem
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -49,34 +50,54 @@ class StockRepository @Inject constructor(
     suspend fun addToWatchlist(symbol: String) {
         val normalized = symbol.uppercase().trim().ifEmpty { return }
         val existing = watchlistDao.getWatchlist()
-        if (existing.any { it.symbol == normalized }) return
+        if (existing.any { it.symbol == normalized }) {
+            Timber.d("Symbol %s already in watchlist, skipping", normalized)
+            return
+        }
         watchlistDao.insert(WatchlistEntity(normalized, existing.size))
+        Timber.i("Added %s to watchlist (position %d)", normalized, existing.size)
     }
 
     suspend fun removeFromWatchlist(symbol: String) {
         watchlistDao.remove(symbol)
+        Timber.i("Removed %s from watchlist", symbol)
     }
 
     suspend fun refreshQuotes(force: Boolean = false): Result<Unit> {
-        if (apiKey.isBlank()) return Result.failure(SecurityException("Configure API key"))
+        if (apiKey.isBlank()) {
+            Timber.w("refreshQuotes aborted: API key not configured")
+            return Result.failure(SecurityException("Configure API key"))
+        }
         val symbols = watchlistDao.getWatchlist().map { it.symbol }
-        if (symbols.isEmpty()) return Result.success(Unit)
+        if (symbols.isEmpty()) {
+            Timber.d("refreshQuotes: watchlist empty, nothing to refresh")
+            return Result.success(Unit)
+        }
+        Timber.d("refreshQuotes started: %d symbols, force=%b", symbols.size, force)
         val results = mutableListOf<StockQuote>()
         for (sym in symbols) {
             val cached = quoteDao.getQuote(sym)
             if (!force && cached != null && (System.currentTimeMillis() - cached.fetchedAt) < CACHE_TTL_MS) {
+                Timber.d("  %s: cache hit (age %ds)", sym, (System.currentTimeMillis() - cached.fetchedAt) / 1000)
                 results.add(cached.toDomain())
                 continue
             }
             val quote = requestQueue.enqueue {
                 runCatching { api.getGlobalQuote(symbol = sym, apikey = apiKey) }
+                    .onFailure { e -> Timber.w(e, "  %s: API call failed", sym) }
                     .getOrNull()?.toDomain(sym)
             }
-            quote?.let { results.add(it) }
+            if (quote != null) {
+                Timber.d("  %s: fetched successfully", sym)
+                results.add(quote)
+            } else {
+                Timber.w("  %s: no quote returned", sym)
+            }
         }
         if (results.isNotEmpty()) {
             quoteDao.insertAll(results.map { it.toEntity() })
         }
+        Timber.d("refreshQuotes complete: %d/%d quotes updated", results.size, symbols.size)
         return Result.success(Unit)
     }
 
@@ -87,7 +108,9 @@ class StockRepository @Inject constructor(
         quoteDao.getQuote(symbol)?.toDomain()
 
     suspend fun clearStaleCache() {
-        quoteDao.deleteOlderThan(System.currentTimeMillis() - CACHE_TTL_MS * 2)
+        val cutoff = System.currentTimeMillis() - CACHE_TTL_MS * 2
+        quoteDao.deleteOlderThan(cutoff)
+        Timber.d("Cleared stale cache entries older than %d", cutoff)
     }
 }
 

@@ -88,6 +88,9 @@ dependencies {
     // Security (EncryptedSharedPreferences)
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
+    // Logging
+    implementation("com.jakewharton.timber:timber:5.0.1")
+
     // Wear Ambient
     implementation("androidx.wear:wear:1.3.0")
 

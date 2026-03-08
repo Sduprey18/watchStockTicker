@@ -3,6 +3,7 @@ package com.stocktracker.wear.data.remote
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -30,7 +31,9 @@ class RequestQueue @Inject constructor() {
         val now = System.currentTimeMillis()
         val elapsed = now - lastRequestTimeMs
         if (elapsed < INTER_REQUEST_DELAY_MS && lastRequestTimeMs > 0) {
-            delay(INTER_REQUEST_DELAY_MS - elapsed)
+            val waitMs = INTER_REQUEST_DELAY_MS - elapsed
+            Timber.d("RequestQueue: throttling for %dms", waitMs)
+            delay(waitMs)
         }
         try {
             block()
@@ -39,3 +42,4 @@ class RequestQueue @Inject constructor() {
         }
     }
 }
+

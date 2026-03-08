@@ -2,6 +2,7 @@ package com.stocktracker.wear.data.remote
 
 import okhttp3.Interceptor
 import okhttp3.Response
+import timber.log.Timber
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -30,6 +31,8 @@ class RateLimitInterceptor @Inject constructor() : Interceptor {
             response.close()
             retryCount++
 
+            Timber.w("HTTP 429 received for %s (attempt %d/%d)", request.url, retryCount, MAX_RETRIES)
+
             val retryAfterHeader = response.header("Retry-After")
             val retryAfterMs = retryAfterHeader?.toLongOrNull()?.times(1000)
 
@@ -42,6 +45,8 @@ class RateLimitInterceptor @Inject constructor() : Interceptor {
                 exponentialDelay
             }
 
+            Timber.d("Rate limit backoff: waiting %dms (retryAfter=%s)", delayMs, retryAfterHeader ?: "none")
+
             try {
                 Thread.sleep(delayMs)
             } catch (_: InterruptedException) {
@@ -52,6 +57,11 @@ class RateLimitInterceptor @Inject constructor() : Interceptor {
             response = chain.proceed(request)
         }
 
+        if (retryCount >= MAX_RETRIES && response.code == 429) {
+            Timber.w("Rate limit: max retries exhausted for %s", request.url)
+        }
+
         return response
     }
 }
+

@@ -10,6 +10,8 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.onEach
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -29,9 +31,9 @@ class ConnectivityObserver @Inject constructor(
         // Emit initial state
         val currentNetwork = connectivityManager.activeNetwork
         val currentCaps = connectivityManager.getNetworkCapabilities(currentNetwork)
-        trySend(
-            currentCaps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-        )
+        val initialState = currentCaps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+        Timber.d("Initial connectivity state: connected=%b", initialState)
+        trySend(initialState)
 
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
@@ -62,4 +64,6 @@ class ConnectivityObserver @Inject constructor(
             connectivityManager.unregisterNetworkCallback(callback)
         }
     }.distinctUntilChanged()
+        .onEach { connected -> Timber.d("Connectivity changed: connected=%b", connected) }
 }
+
