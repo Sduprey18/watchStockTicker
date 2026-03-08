@@ -18,3 +18,14 @@ local.properties
 
 # Kotlin
 *.class
+
+# Signing keys (never commit keystores)
+*.jks
+*.keystore
+
+# Crash logs & profiling
+*.hprof
+*.log
+
+# Gemini agent
+.gemini/

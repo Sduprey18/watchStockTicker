@@ -15,6 +15,7 @@ object RefreshQuotesScheduler {
     fun schedule(context: Context) {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
+            .setRequiresBatteryNotLow(true)
             .build()
         val request = PeriodicWorkRequestBuilder<RefreshQuotesWorker>(45, TimeUnit.MINUTES)
             .setConstraints(constraints)

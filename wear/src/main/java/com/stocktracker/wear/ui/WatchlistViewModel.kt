@@ -2,7 +2,8 @@ package com.stocktracker.wear.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stocktracker.wear.BuildConfig
+import com.stocktracker.wear.data.ConnectivityObserver
+import com.stocktracker.wear.data.SecureApiKeyManager
 import com.stocktracker.wear.data.StockRepository
 import com.stocktracker.wear.domain.StockQuote
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,31 +18,45 @@ data class WatchlistUiState(
     val quotes: List<StockQuote> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
-    val apiKeyConfigured: Boolean = true
+    val apiKeyConfigured: Boolean = true,
+    val isOffline: Boolean = false,
+    val lastSyncTime: Long? = null
 )
 
 @HiltViewModel
 class WatchlistViewModel @Inject constructor(
-    private val repository: StockRepository
+    private val repository: StockRepository,
+    private val secureApiKeyManager: SecureApiKeyManager,
+    private val connectivityObserver: ConnectivityObserver
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(WatchlistUiState(apiKeyConfigured = BuildConfig.STOCK_API_KEY.isNotBlank()))
+    private val _state = MutableStateFlow(WatchlistUiState(apiKeyConfigured = secureApiKeyManager.isKeyConfigured()))
     val state: StateFlow<WatchlistUiState> = _state.asStateFlow()
 
     init {
         loadWatchlistWithQuotes()
+        observeConnectivity()
     }
 
     fun loadWatchlistWithQuotes() {
         viewModelScope.launch {
             repository.watchlistWithQuotesFlow().collect { quotes ->
-                _state.update { it.copy(quotes = quotes, error = null) }
+                val latestSync = quotes.maxOfOrNull { it.fetchedAt }
+                _state.update { it.copy(quotes = quotes, error = null, lastSyncTime = latestSync) }
+            }
+        }
+    }
+
+    private fun observeConnectivity() {
+        viewModelScope.launch {
+            connectivityObserver.isConnected.collect { connected ->
+                _state.update { it.copy(isOffline = !connected) }
             }
         }
     }
 
     fun refresh() {
-        if (BuildConfig.STOCK_API_KEY.isBlank()) {
+        if (!secureApiKeyManager.isKeyConfigured()) {
             _state.update { it.copy(error = "Configure API key in local.properties") }
             return
         }
@@ -56,7 +71,7 @@ class WatchlistViewModel @Inject constructor(
     fun addSymbol(symbol: String) {
         viewModelScope.launch {
             repository.addToWatchlist(symbol)
-            if (BuildConfig.STOCK_API_KEY.isNotBlank()) {
+            if (secureApiKeyManager.isKeyConfigured()) {
                 repository.refreshQuotes(force = true)
             }
         }
@@ -72,3 +87,4 @@ class WatchlistViewModel @Inject constructor(
         _state.update { it.copy(error = null) }
     }
 }
+

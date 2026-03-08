@@ -1,19 +1,18 @@
 package com.stocktracker.wear.data
 
-import com.stocktracker.wear.BuildConfig
 import com.stocktracker.wear.data.local.CachedQuoteEntityMapper.toDomain
 import com.stocktracker.wear.data.local.CachedQuoteEntityMapper.toEntity
 import com.stocktracker.wear.data.local.dao.QuoteDao
 import com.stocktracker.wear.data.local.dao.WatchlistDao
 import com.stocktracker.wear.data.local.entity.WatchlistEntity
 import com.stocktracker.wear.data.remote.AlphaVantageApi
+import com.stocktracker.wear.data.remote.RequestQueue
 import com.stocktracker.wear.data.remote.toDomain
 import com.stocktracker.wear.domain.StockQuote
 import com.stocktracker.wear.domain.WatchlistItem
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
-import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -23,14 +22,13 @@ private const val CACHE_TTL_MS = 15 * 60 * 1000L // 15 minutes
 class StockRepository @Inject constructor(
     private val watchlistDao: WatchlistDao,
     private val quoteDao: QuoteDao,
-    private val api: AlphaVantageApi
+    private val api: AlphaVantageApi,
+    private val secureApiKeyManager: SecureApiKeyManager,
+    private val requestQueue: RequestQueue
 ) {
 
     private val apiKey: String
-        get() = BuildConfig.STOCK_API_KEY
-
-    private val refreshLocks = ConcurrentHashMap<String, Any>()
-    private val lock = Any()
+        get() = secureApiKeyManager.getApiKey()
 
     fun watchlistFlow(): Flow<List<WatchlistItem>> =
         watchlistDao.watchlistFlow().map { list ->
@@ -70,11 +68,11 @@ class StockRepository @Inject constructor(
                 results.add(cached.toDomain())
                 continue
             }
-            val lockObj = refreshLocks.getOrPut(sym) { Any() }
-            synchronized(lockObj) {
-                val dto = runCatching { api.getGlobalQuote(symbol = sym, apikey = apiKey) }
-                dto.getOrNull()?.toDomain(sym)?.let { results.add(it) }
+            val quote = requestQueue.enqueue {
+                runCatching { api.getGlobalQuote(symbol = sym, apikey = apiKey) }
+                    .getOrNull()?.toDomain(sym)
             }
+            quote?.let { results.add(it) }
         }
         if (results.isNotEmpty()) {
             quoteDao.insertAll(results.map { it.toEntity() })
@@ -92,3 +90,4 @@ class StockRepository @Inject constructor(
         quoteDao.deleteOlderThan(System.currentTimeMillis() - CACHE_TTL_MS * 2)
     }
 }
+

@@ -1,14 +1,20 @@
 package com.stocktracker.wear.di
 
 import android.app.Application
+import android.content.Context
 import androidx.room.Room
+import com.stocktracker.wear.data.ConnectivityObserver
 import com.stocktracker.wear.data.StockRepository
 import com.stocktracker.wear.data.local.AppDatabase
 import com.stocktracker.wear.data.remote.AlphaVantageApi
+import com.stocktracker.wear.data.remote.RateLimitInterceptor
+import com.stocktracker.wear.data.remote.RequestQueue
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import okhttp3.ConnectionSpec
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -24,11 +30,16 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-        .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY })
-        .build()
+    fun provideOkHttpClient(rateLimitInterceptor: RateLimitInterceptor): OkHttpClient =
+        OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .connectionSpecs(listOf(ConnectionSpec.MODERN_TLS))
+            .addInterceptor(rateLimitInterceptor)
+            .addInterceptor(HttpLoggingInterceptor().apply {
+                level = HttpLoggingInterceptor.Level.BODY
+            })
+            .build()
 
     @Provides
     @Singleton
@@ -57,4 +68,15 @@ object AppModule {
     @Provides
     @Singleton
     fun provideQuoteDao(db: AppDatabase) = db.quoteDao()
+
+    @Provides
+    @Singleton
+    fun provideRequestQueue(): RequestQueue = RequestQueue()
+
+    @Provides
+    @Singleton
+    fun provideConnectivityObserver(
+        @ApplicationContext context: Context
+    ): ConnectivityObserver = ConnectivityObserver(context)
 }
+

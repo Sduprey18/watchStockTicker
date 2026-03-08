@@ -1,26 +1,36 @@
 package com.stocktracker.wear.ui
 
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
+import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Card
 import androidx.wear.compose.material3.CardDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import com.stocktracker.wear.domain.StockQuote
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -32,6 +42,12 @@ fun WatchlistScreen(
     viewModel: WatchlistViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val isAmbient = LocalAmbientMode.current
+
+    if (isAmbient) {
+        AmbientWatchlistContent(quotes = state.quotes, lastSyncTime = state.lastSyncTime)
+        return
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         when {
@@ -43,31 +59,123 @@ fun WatchlistScreen(
                 onAddClick = onAddClick,
                 apiKeyConfigured = state.apiKeyConfigured
             )
-            else -> ScalingLazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-                horizontalAlignment = Alignment.CenterHorizontally)
-            {
-                item {
-                    Button(
-                        onClick = { viewModel.refresh() },
-                        enabled = !state.isLoading
-                    ) {
-                        Text(if (state.isLoading) "Refreshing…" else "Refresh")
+            else -> {
+                val listState = rememberScalingLazyListState()
+                val focusRequester = remember { FocusRequester() }
+                val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
+
+                ScalingLazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .onRotaryScrollEvent { event ->
+                            coroutineScope.launch {
+                                listState.scrollBy(event.verticalScrollPixels)
+                            }
+                            true
+                        }
+                        .focusRequester(focusRequester)
+                        .focusable(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Offline banner
+                    if (state.isOffline) {
+                        item {
+                            Text(
+                                text = "⚡ Offline",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 4.dp)
+                            )
+                        }
+                    }
+
+                    item {
+                        Button(
+                            onClick = { viewModel.refresh() },
+                            enabled = !state.isLoading
+                        ) {
+                            Text(if (state.isLoading) "Refreshing…" else "Refresh")
+                        }
+                    }
+                    items(state.quotes) { quote ->
+                        StockQuoteCard(
+                            quote = quote,
+                            onClick = { onSymbolClick(quote.symbol) }
+                        )
+                    }
+                    item {
+                        Button(onClick = onAddClick) {
+                            Text("Add symbol")
+                        }
+                    }
+
+                    // Last sync timestamp
+                    state.lastSyncTime?.let { ts ->
+                        item {
+                            Text(
+                                text = "Last sync: ${formatFetchedAt(ts)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
                     }
                 }
-                items(state.quotes) { quote ->
-                    StockQuoteCard(
-                        quote = quote,
-                        onClick = { onSymbolClick(quote.symbol) }
-                    )
-                }
-                item {
-                    Button(onClick = onAddClick) {
-                        Text("Add symbol")
-                    }
+
+                LaunchedEffect(Unit) {
+                    focusRequester.requestFocus()
                 }
             }
+        }
+    }
+}
+
+/**
+ * Simplified ambient mode layout: white-on-black, no interactive elements,
+ * shows top 3 symbols with prices for at-a-glance readability.
+ */
+@Composable
+private fun AmbientWatchlistContent(
+    quotes: List<StockQuote>,
+    lastSyncTime: Long?
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        quotes.take(3).forEach { quote ->
+            val changeStr = "%+.2f".format(quote.change)
+            Text(
+                text = "${quote.symbol}  ${"%.2f".format(quote.price)}  $changeStr",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(vertical = 2.dp)
+            )
+        }
+        if (quotes.isEmpty()) {
+            Text(
+                text = "No data",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White
+            )
+        }
+        lastSyncTime?.let {
+            Text(
+                text = formatFetchedAt(it),
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.Gray,
+                modifier = Modifier.padding(top = 8.dp)
+            )
         }
     }
 }
