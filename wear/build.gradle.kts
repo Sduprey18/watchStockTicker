@@ -55,9 +55,9 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
 
     // Wear OS Compose Material 3
-    implementation("androidx.wear.compose:compose-material3:1.3.1")
-    implementation("androidx.wear.compose:compose-foundation:1.3.1")
-    implementation("androidx.wear.compose:compose-navigation:1.3.1")
+    implementation("androidx.wear.compose:compose-material3:1.5.0")
+    implementation("androidx.wear.compose:compose-foundation:1.5.0")
+    implementation("androidx.wear.compose:compose-navigation:1.5.0")
 
     // Compose
     implementation("androidx.compose.ui:ui")
