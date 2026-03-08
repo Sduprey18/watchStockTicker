@@ -1,8 +1,11 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
@@ -15,7 +18,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
-        val localProperties = java.util.Properties()
+        val localProperties = Properties()
         rootProject.file("local.properties").takeIf { it.exists() }?.reader()?.use { localProperties.load(it) }
         buildConfigField("String", "STOCK_API_KEY", "\"${localProperties.getProperty("STOCK_API_KEY", "")}\"")
     }
@@ -40,9 +43,7 @@ android {
         compose = true
         buildConfig = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.14"
-    }
+
 }
 
 dependencies {
@@ -93,6 +94,13 @@ dependencies {
 
     // Wear Ambient
     implementation("androidx.wear:wear:1.3.0")
+
+    // Test
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("io.mockk:mockk:1.13.12")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+    testImplementation("androidx.arch.core:core-testing:2.2.0")
+    testImplementation("app.cash.turbine:turbine:1.1.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
