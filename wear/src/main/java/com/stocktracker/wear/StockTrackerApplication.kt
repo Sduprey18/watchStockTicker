@@ -14,8 +14,8 @@ class StockTrackerApplication : Application(), Configuration.Provider {
     @Inject
     lateinit var workerFactory: androidx.hilt.work.HiltWorkerFactory
 
-    override fun getWorkManagerConfiguration(): Configuration =
-        Configuration.Builder()
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
             .build()
 
@@ -27,7 +27,7 @@ class StockTrackerApplication : Application(), Configuration.Provider {
         }
         Timber.d("StockTrackerApplication starting")
 
-        WorkManager.initialize(this, getWorkManagerConfiguration())
+        WorkManager.initialize(this, workManagerConfiguration)
         Timber.d("WorkManager initialized")
 
         RefreshQuotesScheduler.schedule(this)

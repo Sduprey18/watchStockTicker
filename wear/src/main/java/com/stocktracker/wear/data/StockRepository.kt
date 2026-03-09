@@ -1,7 +1,7 @@
 package com.stocktracker.wear.data
 
-import com.stocktracker.wear.data.local.CachedQuoteEntityMapper.toDomain
-import com.stocktracker.wear.data.local.CachedQuoteEntityMapper.toEntity
+import com.stocktracker.wear.data.local.toDomain
+import com.stocktracker.wear.data.local.toEntity
 import com.stocktracker.wear.data.local.dao.QuoteDao
 import com.stocktracker.wear.data.local.dao.WatchlistDao
 import com.stocktracker.wear.data.local.entity.WatchlistEntity
